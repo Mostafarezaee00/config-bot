@@ -13,36 +13,88 @@ from telegram.ext import (
 # ─── تنظیمات ───────────────────────────────────────────────────────────────
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID   = 6493854621         # آیدی عددی ادمین تلگرام
-CARD_NUMBER = "6219-8618-1907-1043"  # شماره کارت برای پرداخت
-CARD_OWNER  = "طاها کیانمهر"
+CARD_NUMBER = "6037-2645-5555-4444"  # شماره کارت برای پرداخت
+CARD_OWNER  = "نام صاحب کارت"
 
 # مراحل مکالمه
-CHOOSING_PLAN, CONFIRM_ORDER, WAITING_RECEIPT = range(3)
+CHOOSING_CATEGORY, CHOOSING_PLAN, CONFIRM_ORDER, WAITING_RECEIPT = range(4)
 
-# پلن‌های موجود  {id: {name, price, duration, traffic, description}}
+# دسته‌بندی‌های مدت زمان
+CATEGORIES = {
+    "cat_1m": {"label": "📅 یک ماهه", "duration": "۳۰ روزه"},
+    "cat_2m": {"label": "📅 دو ماهه", "duration": "۶۰ روزه"},
+}
+
+# پلن‌های موجود  {id: {category, emoji, name, price, original_price, duration, traffic, description}}
 PLANS = {
-    "plan_1": {
+    "plan_1m_bronze": {
+        "category": "cat_1m",
+        "emoji": "🥉",
         "name": "برنزی",
         "price": 49_000,
+        "original_price": 90_000,
         "duration": "۳۰ روزه",
         "traffic": "۱۰ گیگ",
         "description": "مناسب استفاده روزانه سبک",
     },
-    "plan_2": {
+    "plan_1m_silver": {
+        "category": "cat_1m",
+        "emoji": "🥈",
         "name": "نقره‌ای",
         "price": 89_000,
+        "original_price": 180_000,
         "duration": "۳۰ روزه",
-        "traffic": "۲۰ گیگ",
+        "traffic": "۲۵ گیگ",
         "description": "پرطرفدارترین پلن",
     },
-    "plan_3": {
+    "plan_1m_gold": {
+        "category": "cat_1m",
+        "emoji": "🥇",
         "name": "طلایی",
-        "price": 130_000,
+        "price": 134_000,
+        "original_price": 450_000,
         "duration": "۳۰ روزه",
-        "traffic": "۳۰ گیگ",
+        "traffic": "۵۰ گیگ",
+        "description": "بهترین ارزش خرید",
+    },
+    "plan_2m_bronze": {
+        "category": "cat_2m",
+        "emoji": "🥉",
+        "name": "برنزی",
+        "price": 115_000,
+        "original_price": None,
+        "duration": "۶۰ روزه",
+        "traffic": "۲۵ گیگ",
+        "description": "مناسب استفاده روزانه سبک",
+    },
+    "plan_2m_silver": {
+        "category": "cat_2m",
+        "emoji": "🥈",
+        "name": "نقره‌ای",
+        "price": 150_000,
+        "original_price": None,
+        "duration": "۶۰ روزه",
+        "traffic": "۳۵ گیگ",
+        "description": "پرطرفدارترین پلن",
+    },
+    "plan_2m_gold": {
+        "category": "cat_2m",
+        "emoji": "🥇",
+        "name": "طلایی",
+        "price": 180_000,
+        "original_price": None,
+        "duration": "۶۰ روزه",
+        "traffic": "۵۰ گیگ",
         "description": "بهترین ارزش خرید",
     },
 }
+
+
+def discount_percent(plan: dict) -> int:
+    """درصد تخفیف رو از روی قیمت اصلی و قیمت فعلی حساب می‌کنه"""
+    if not plan.get("original_price"):
+        return 0
+    return round((1 - plan["price"] / plan["original_price"]) * 100)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -120,12 +172,26 @@ def main_menu_keyboard():
     )
 
 
-def plans_keyboard():
+def categories_keyboard():
+    buttons = []
+    for cid, c in CATEGORIES.items():
+        buttons.append([InlineKeyboardButton(f"{c['label']} ({c['duration']})", callback_data=f"category_{cid}")])
+    buttons.append([InlineKeyboardButton("🔙 بازگشت", callback_data="back_main")])
+    return InlineKeyboardMarkup(buttons)
+
+
+def plans_keyboard(category_id):
     buttons = []
     for pid, p in PLANS.items():
-        label = f"{p['name']} — {p['duration']} — {p['price']:,} تومان"
+        if p["category"] != category_id:
+            continue
+        pct = discount_percent(p)
+        if pct:
+            label = f"{p['emoji']} {p['name']} | {p['traffic']} | {p['price']:,} ت (٪{pct}-)"
+        else:
+            label = f"{p['emoji']} {p['name']} | {p['traffic']} | {p['price']:,} تومان"
         buttons.append([InlineKeyboardButton(label, callback_data=f"select_{pid}")])
-    buttons.append([InlineKeyboardButton("🔙 بازگشت", callback_data="back_main")])
+    buttons.append([InlineKeyboardButton("🔙 بازگشت به دسته‌بندی", callback_data="back_categories")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -166,12 +232,38 @@ async def buy_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     sent = await update.message.reply_text(
-        "📦 پلن مورد نظرت رو انتخاب کن:\n\n"
-        "هر پلن شامل کانفیگ V2Ray اختصاصیه.",
-        reply_markup=plans_keyboard(),
+        "📂 یک دسته‌بندی رو انتخاب کن:",
+        reply_markup=categories_keyboard(),
     )
     context.user_data["menu_msg_id"] = sent.message_id
+    return CHOOSING_CATEGORY
+
+
+async def category_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category_id = query.data.replace("category_", "")
+    cat = CATEGORIES.get(category_id)
+    if not cat:
+        await query.edit_message_text("دسته‌بندی پیدا نشد. دوباره امتحان کن.")
+        return CHOOSING_CATEGORY
+
+    context.user_data["selected_category"] = category_id
+    await query.edit_message_text(
+        f"{cat['label']} — پلن مورد نظرت رو انتخاب کن:",
+        reply_markup=plans_keyboard(category_id),
+    )
     return CHOOSING_PLAN
+
+
+async def back_to_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        "📂 یک دسته‌بندی رو انتخاب کن:",
+        reply_markup=categories_keyboard(),
+    )
+    return CHOOSING_CATEGORY
 
 
 async def plan_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -184,11 +276,20 @@ async def plan_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_PLAN
 
     context.user_data["selected_plan"] = plan_id
+    pct = discount_percent(plan)
+    if pct:
+        price_lines = (
+            f"💸 قیمت قبل:   {plan['original_price']:,} تومان\n"
+            f"🔥 تخفیف:      ٪{pct}\n"
+            f"💰 قیمت نهایی: {plan['price']:,} تومان\n\n"
+        )
+    else:
+        price_lines = f"💰 قیمت:       {plan['price']:,} تومان\n\n"
     text = (
-        f"📋 جزئیات پلن «{plan['name']}»\n\n"
-        f"⏱ مدت:    {plan['duration']}\n"
-        f"📊 حجم:    {plan['traffic']}\n"
-        f"💰 قیمت:  {plan['price']:,} تومان\n\n"
+        f"{plan['emoji']} جزئیات پلن «{plan['name']}»\n\n"
+        f"⏱ مدت:        {plan['duration']}\n"
+        f"📊 حجم:        {plan['traffic']}\n\n"
+        f"{price_lines}"
         f"ℹ️ {plan['description']}\n\n"
         "آیا این پلن رو تایید می‌کنی؟"
     )
@@ -199,9 +300,11 @@ async def plan_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def back_to_plans(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    category_id = context.user_data.get("selected_category")
+    cat = CATEGORIES.get(category_id, {"label": ""})
     await query.edit_message_text(
-        "📦 پلن مورد نظرت رو انتخاب کن:",
-        reply_markup=plans_keyboard(),
+        f"{cat['label']} — پلن مورد نظرت رو انتخاب کن:",
+        reply_markup=plans_keyboard(category_id),
     )
     return CHOOSING_PLAN
 
@@ -223,7 +326,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["order_id"] = order_id
 
     payment_text = (
-        f"✅ سفارش شماره #{order_id} ثبت شد!\n\n"
+        f"✅ سفارش شماره #{order_id} ثبت شد! {plan['emoji']}\n\n"
         f"💳 لطفاً مبلغ {plan['price']:,} تومان رو به حساب زیر واریز کن:\n\n"
         f"🏦 شماره کارت:\n`{CARD_NUMBER}`\n"
         f"👤 به نام: {CARD_OWNER}\n\n"
@@ -434,6 +537,22 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def back_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="منوی اصلی 👇",
+        reply_markup=main_menu_keyboard(),
+    )
+    context.user_data.clear()
+    return ConversationHandler.END
+
+
 async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "لطفاً از منوی پایین یه گزینه انتخاب کن.",
@@ -450,10 +569,15 @@ async def main():
     conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config)],
         states={
+            CHOOSING_CATEGORY: [
+                MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
+                CallbackQueryHandler(category_selected, pattern="^category_"),
+                CallbackQueryHandler(back_to_main_menu, pattern="^back_main"),
+            ],
             CHOOSING_PLAN: [
                 MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
                 CallbackQueryHandler(plan_selected, pattern="^select_"),
-                CallbackQueryHandler(fallback,      pattern="^back_main"),
+                CallbackQueryHandler(back_to_categories, pattern="^back_categories"),
             ],
             CONFIRM_ORDER: [
                 MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
