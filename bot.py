@@ -429,7 +429,7 @@ async def admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=user_id,
         text=(
             f"❌ متاسفانه پرداخت سفارش #{order_id} تایید نشد.\n\n"
-            "لطفاً با پشتیبانی تماس بگیر یا دوباره رسید معتبر بفرست."
+            "لطفاً با پشتیبانی ارتبلط بگیر یا دوباره رسید معتبر بفرست."
         ),
     )
 
@@ -522,7 +522,7 @@ async def install_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "1. دانلود V2RayN از GitHub\n"
         "2. سرورها → اضافه کردن سرور از کلیپبورد\n"
         "3. لینک رو paste کن\n\n"
-        "❓ مشکل داری؟ با پشتیبانی تماس بگیر."
+        "❓ مشکل داری؟ بهتره با پشتیبانی تماس بگیری."
     )
     await update.message.reply_text(guide, reply_markup=main_menu_keyboard())
 
@@ -530,7 +530,7 @@ async def install_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💬 پشتیبانی\n\n"
-        "برای ارتباط با ما مستقیم پیام بده:\n\n"
+        "برای ارتباط مستقیم با ما پیام بده:\n\n"
         "👤 @Mosstafa2005\n\n"
         "⏰ ساعات پاسخ‌دهی: ۹ صبح تا ۱۱ شب",
         reply_markup=main_menu_keyboard(),
