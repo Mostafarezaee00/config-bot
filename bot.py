@@ -13,8 +13,8 @@ from telegram.ext import (
 # ─── تنظیمات ───────────────────────────────────────────────────────────────
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID   = 6493854621         # آیدی عددی ادمین تلگرام
-CARD_NUMBER = "6037-2645-5555-4444"  # شماره کارت برای پرداخت
-CARD_OWNER  = "نام صاحب کارت"
+CARD_NUMBER = "6219-8618-1907-1043"  # شماره کارت برای پرداخت
+CARD_OWNER  = "طاها کیانمهر"
 
 # مراحل مکالمه
 CHOOSING_PLAN, CONFIRM_ORDER, WAITING_RECEIPT = range(3)
