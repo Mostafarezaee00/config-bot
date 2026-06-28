@@ -150,11 +150,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def buy_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
+    # اگه منوی قبلی هنوز باز بود، دکمه‌هاش رو غیرفعال کن تا منوی قدیمی بسته شه
+    old_msg_id = context.user_data.get("menu_msg_id")
+    if old_msg_id:
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=update.effective_chat.id,
+                message_id=old_msg_id,
+                reply_markup=None,
+            )
+        except Exception:
+            pass
+
+    # پاک کردن اطلاعات سفارش قبلی (پلن انتخابی، order_id و ...) و شروع تازه
+    context.user_data.clear()
+
+    sent = await update.message.reply_text(
         "📦 پلن مورد نظرت رو انتخاب کن:\n\n"
         "هر پلن شامل کانفیگ V2Ray اختصاصیه.",
         reply_markup=plans_keyboard(),
     )
+    context.user_data["menu_msg_id"] = sent.message_id
     return CHOOSING_PLAN
 
 
@@ -435,14 +451,17 @@ async def main():
         entry_points=[MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config)],
         states={
             CHOOSING_PLAN: [
+                MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
                 CallbackQueryHandler(plan_selected, pattern="^select_"),
                 CallbackQueryHandler(fallback,      pattern="^back_main"),
             ],
             CONFIRM_ORDER: [
+                MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
                 CallbackQueryHandler(confirm_order, pattern="^confirm_"),
                 CallbackQueryHandler(back_to_plans, pattern="^back_plans"),
             ],
             WAITING_RECEIPT: [
+                MessageHandler(filters.Regex("^🛒 خرید کانفیگ$"), buy_config),
                 MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, receive_receipt)
             ],
         },
